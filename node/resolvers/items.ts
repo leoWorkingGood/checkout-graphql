@@ -4,6 +4,7 @@ import { Logger } from '@vtex/api'
 import { SearchGraphQL } from '../clients/searchGraphQL'
 import { fixImageUrl } from '../utils/image'
 import { addOptionsForItems } from '../utils/attachmentsHelpers'
+import { OrderFormIdArgs } from '../utils/args'
 
 const GOCOMMERCE = 'gocommerce'
 
@@ -74,25 +75,24 @@ export const adjustItems = ({
 export const mutations = {
   addToCart: async (
     _: unknown,
-    {
-      items,
-      marketingData = {},
-    }: {
+    args: {
       items: OrderFormItemInput[]
       marketingData: Partial<OrderFormMarketingData>
-    },
+    } & OrderFormIdArgs,
     ctx: Context
   ): Promise<CheckoutOrderForm> => {
     const {
       clients,
-      vtex: { orderFormId, logger },
+      vtex,
+      vtex: { logger },
     } = ctx
+    const { orderFormId = vtex.orderFormId, items, marketingData = {} } = args
 
     const { checkout } = clients
     const shouldUpdateMarketingData =
       Object.keys(marketingData ?? {}).length > 0
 
-    const { items: previousItems } = await checkout.orderForm()
+    const { items: previousItems } = await checkout.orderForm(orderFormId!)
     const cleanItems = items.map(({ options, ...rest }) => rest)
     const withOptions = items.filter(
       ({ options }) => !!options && options.length > 0
@@ -132,7 +132,7 @@ export const mutations = {
         previousItems
       )
 
-      return checkout.orderForm()
+      return checkout.orderForm(orderFormId!)
     }
 
     return newOrderForm
@@ -140,17 +140,18 @@ export const mutations = {
 
   updateItems: async (
     _: unknown,
-    { orderItems, splitItem }: { orderItems: OrderFormItemInput[], splitItem: boolean },
+    args: {
+      orderItems: OrderFormItemInput[]
+      splitItem: boolean
+    } & OrderFormIdArgs,
     ctx: Context
   ): Promise<CheckoutOrderForm> => {
-    const {
-      clients,
-      vtex: { orderFormId },
-    } = ctx
+    const { clients, vtex } = ctx
+    const { orderFormId = vtex.orderFormId, orderItems, splitItem } = args
     const { checkout } = clients
 
     if (orderItems.some((item: OrderFormItemInput) => !item.index)) {
-      const orderForm = await checkout.orderForm()
+      const orderForm = await checkout.orderForm(orderFormId!)
 
       const idToIndex = orderForm.items.reduce(
         (acc: Record<string, number>, item: OrderFormItem, index: number) => {
@@ -179,81 +180,77 @@ export const mutations = {
   },
   addItemOffering: async (
     _: unknown,
-    { offeringInput }: { offeringInput: OfferingInput },
+    args: { offeringInput: OfferingInput } & OrderFormIdArgs,
     ctx: Context
   ): Promise<CheckoutOrderForm> => {
-    const {
-      clients,
-      vtex: { orderFormId },
-    } = ctx
+    const { clients, vtex } = ctx
+    const { offeringInput, orderFormId = vtex.orderFormId } = args
 
     const newOrderForm = await clients.checkout.addItemOffering(
       orderFormId!,
       offeringInput.itemIndex,
       offeringInput.offeringId,
-      offeringInput.offeringInfo,
+      offeringInput.offeringInfo
     )
 
     return newOrderForm
   },
   removeItemOffering: async (
     _: unknown,
-    { offeringInput }: { offeringInput: OfferingInput },
+    args: { offeringInput: OfferingInput } & OrderFormIdArgs,
     ctx: Context
   ): Promise<CheckoutOrderForm> => {
-    const {
-      clients,
-      vtex: { orderFormId },
-    } = ctx
+    const { clients, vtex } = ctx
+    const { offeringInput, orderFormId = vtex.orderFormId } = args
 
     const newOrderForm = await clients.checkout.removeItemOffering(
       orderFormId!,
       offeringInput.itemIndex,
-      offeringInput.offeringId,
+      offeringInput.offeringId
     )
 
     return newOrderForm
   },
   addBundleItemAttachment: async (
     _: unknown,
-    { bundleItemAttachmentInput }: { bundleItemAttachmentInput: BundleItemAttachmentInput },
+    args: {
+      bundleItemAttachmentInput: BundleItemAttachmentInput
+    } & OrderFormIdArgs,
     ctx: Context
   ): Promise<CheckoutOrderForm> => {
-    const {
-      clients,
-      vtex: { orderFormId },
-    } = ctx
+    const { clients, vtex } = ctx
+    const { bundleItemAttachmentInput, orderFormId = vtex.orderFormId } = args
 
     const newOrderForm = await clients.checkout.addBundleItemAttachment(
       orderFormId!,
       bundleItemAttachmentInput.itemIndex,
       bundleItemAttachmentInput.bundleItemId,
       bundleItemAttachmentInput.attachmentName,
-      bundleItemAttachmentInput.attachmentContent,
+      bundleItemAttachmentInput.attachmentContent
     )
 
     return newOrderForm
   },
   removeBundleItemAttachment: async (
     _: unknown,
-    { bundleItemAttachmentInput }: { bundleItemAttachmentInput: BundleItemAttachmentInput },
+    args: {
+      bundleItemAttachmentInput: BundleItemAttachmentInput
+    } & OrderFormIdArgs,
     ctx: Context
   ) => {
-    const {
-      clients,
-      vtex: { orderFormId },
-    } = ctx
+    const { clients, vtex } = ctx
+    const { bundleItemAttachmentInput, orderFormId = vtex.orderFormId } = args
 
     const { data } = await clients.checkout.removeBundleItemAttachment(
       orderFormId!,
       bundleItemAttachmentInput.itemIndex,
       bundleItemAttachmentInput.bundleItemId,
       bundleItemAttachmentInput.attachmentName,
-      bundleItemAttachmentInput.attachmentContent,
+      bundleItemAttachmentInput.attachmentContent
     )
 
     return data
-  }
+  },
 }
 
 interface OfferingInput {
